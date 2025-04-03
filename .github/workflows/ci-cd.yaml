@@ -1,0 +1,51 @@
+name: CI/CD Pipeline
+
+
+on:
+  push:
+    branches:
+      - main
+
+
+jobs:
+  build-and-test:
+    runs: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: action/checkout@v3
+
+
+      - name: Setup Node.js
+        uses: action/setup-node@v3
+        with:
+          node-version: '16'
+
+
+      - name: Install dependencies
+        run: npm install
+
+
+      - name: Run Tests
+        run: echoo "Running Tests..."
+
+
+      - name: BUild Docker image
+        run: |
+          docker build -t <dockerhub-username>/k8s-ci-cd-demo:${{ github.sha }} .
+          docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} -p ${{ secrets.DOCKER_HUB_TOKEN }}
+        docker push <dockerhub-username>/k8s-ci-cd-demo:${{ github.sha }}
+
+
+  deploy-to-kubernetes:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f k8s/deployment.yaml
+          kubectl set image deployment/k8s-ci-cd-deployment node-app=<dockerhub-username>/k8s-ci-cd-demo:${{ github.sha }}
+
